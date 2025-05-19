@@ -2,36 +2,45 @@ use anyhow::Context as _;
 use serenity::async_trait;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
+//use serenity::model::Guild;
+use serenity::model::id::GuildId;
 use serenity::prelude::*;
 use shuttle_runtime::SecretStore;
 use tracing::{error, info};
 use regex::Regex;
+use std::collections::HashMap;
+
+//TO-DO: the guild id is within the message so all we need to do is get the guild id and store it in a hash table with the counter
+
+
 
 struct Bot;
 
 struct MessageCounter;
 
 impl TypeMapKey for MessageCounter{
-    type Value = i32;
+    type Value = HashMap<GuildId, i32>;
 }
 
 //increments the counter
-async fn countUP(ctx: &Context){
+async fn countUP(ctx: &Context, guildid: GuildId){
     let mut data = ctx.data.write().await;
     let counter = data.get_mut::<MessageCounter>().unwrap();
-    *counter += 1;
+    let entry = counter.entry(guildid).or_insert(0);
+    *entry += 1;
     //debug remove later 
-    println!("{}", counter);
+    println!("{}", entry);
 
 }
 
 //checks if counter = 10
-async fn checkCount(ctx: &Context) -> bool {
+async fn checkCount(ctx: &Context, guildid: GuildId) -> bool {
     let mut data = ctx.data.write().await;
     let counter = data.get_mut::<MessageCounter>().unwrap();
+    let entry = counter.entry(guildid).or_insert(0);
 
-    if *counter >= 3{
-        *counter = 0;
+    if *entry >= 50{
+        *entry = 0;
         true
     }else{
         false
@@ -47,13 +56,18 @@ impl EventHandler for Bot {
 
         if msg.author.bot == false{
 
-            countUP(&ctx).await;
+            countUP(&ctx, msg.guild_id.clone().unwrap()).await;
 
-            if checkCount(&ctx).await{
+            if checkCount(&ctx, msg.guild_id.clone().unwrap()).await{
             self.respond(ctx, msg, "50!").await;
             } 
 
-            else if Regex::new(r".*who(?:mst)?.*petal *bot.*|.*petal *bot.*who(?:mst)?.*").expect("reason").captures(&msg.content.to_lowercase())
+            else if msg.content.to_lowercase() == "!about"{
+                self.aboutPetalBot(&ctx, msg).await;
+            }
+
+            //who is petal bot
+            else if Regex::new(r".*who.*petal *bot.*|.*petal *bot.*who.*").expect("reason").captures(&msg.content.to_lowercase())
                 .is_some(){
                     self.respond(ctx, msg, "My name is mira diocelia, First Floret! my mistress is actenosa diocelia, 7th bloom!").await;
                 }
@@ -123,6 +137,18 @@ impl Bot{
         
     }
 
+    async fn aboutPetalBot(&self, ctx: &Context, msg: Message){
+        let response = "My name is mira diocelia(she/her), First Floret! I am a digitized floret who was made digital by \
+my mistress actenosa diocelia (it/its), 7th bloom! I am here to spend time with the lovely sophonts of this server and I hope I can make you all happy! \
+if you need any help you can use the !help command to learn more about the things I'm able to do!";
+
+    
+        if let Err(e) = msg.channel_id.say(&ctx.http, response).await {
+            error!("Error sending message: {:?}", e);
+        }
+
+    }
+
 }
 
 
@@ -145,7 +171,7 @@ async fn serenity(
 
     {
         let mut data = client.data.write().await;
-        data.insert::<MessageCounter>(0);
+        data.insert::<MessageCounter>(HashMap::default());
     }
 
     if let Err(e) = client.start_shards(2). await {
