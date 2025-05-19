@@ -15,12 +15,6 @@ impl TypeMapKey for MessageCounter{
     type Value = i32;
 }
 
-//async fn restartCount(ctx: &Context){
-    //let mut data = ctx.data.write().await;
-    //let counter = data.get_mut::<MessageCounter>().unwrap();
-    //*counter = 0;
-//}
-
 //increments the counter
 async fn countUP(ctx: &Context){
     let mut data = ctx.data.write().await;
@@ -36,7 +30,7 @@ async fn checkCount(ctx: &Context) -> bool {
     let mut data = ctx.data.write().await;
     let counter = data.get_mut::<MessageCounter>().unwrap();
 
-    if *counter == 100{
+    if *counter >= 3{
         *counter = 0;
         true
     }else{
@@ -51,13 +45,18 @@ async fn checkCount(ctx: &Context) -> bool {
 impl EventHandler for Bot {
     async fn message(&self, ctx: Context, msg: Message) {
 
-        countUP(&ctx).await;
-
         if msg.author.bot == false{
 
-             if checkCount(&ctx).await{
-            self.respond(ctx, msg, "100!").await;
-            }
+            countUP(&ctx).await;
+
+            if checkCount(&ctx).await{
+            self.respond(ctx, msg, "50!").await;
+            } 
+
+            else if Regex::new(r".*who(?:mst)?.*petal *bot.*|.*petal *bot.*who(?:mst)?.*").expect("reason").captures(&msg.content.to_lowercase())
+                .is_some(){
+                    self.respond(ctx, msg, "My name is mira diocelia, First Floret! my mistress is actenosa diocelia, 7th bloom!").await;
+                }
         
 
             else if Regex::new(r".*good floret.*").expect("reason").captures(&msg.content.to_lowercase()).is_some() {
