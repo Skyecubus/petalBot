@@ -1,6 +1,7 @@
 use anyhow::Context as _;
 use serenity::async_trait;
 use serenity::model::channel::Message;
+use serenity::model::channel::MessageType;
 use serenity::model::gateway::Ready;
 //use serenity::model::Guild;
 use serenity::model::id::GuildId;
@@ -9,6 +10,8 @@ use shuttle_runtime::SecretStore;
 use tracing::{error, info};
 use regex::Regex;
 use std::collections::HashMap;
+use rand::prelude::*;
+use rand::distr::Alphanumeric;
 
 //TO-DO: the guild id is within the message so all we need to do is get the guild id and store it in a hash table with the counter
 
@@ -62,8 +65,26 @@ impl EventHandler for Bot {
             self.respond(ctx, msg, "50!").await;
             } 
 
+            //if user replies to petal bot with good _____something_____
+
+            else if msg.kind == MessageType::InlineReply 
+                                && msg.referenced_message.as_ref().unwrap().author.name == "PetalBot"
+                                && Regex::new(r".*go*d.*").expect("reason").captures(&msg.content.to_lowercase()).is_some()
+            
+            {
+                self.keySmash(&ctx, msg).await;
+            }
+
             else if msg.content.to_lowercase() == "!about"{
                 self.aboutPetalBot(&ctx, msg).await;
+            }
+
+            else if msg.content.to_lowercase() == "!help"{
+                self.help(&ctx, msg).await;
+            }
+
+            else if msg.content.to_lowercase() == "!keysmash"{
+                self.keySmash(&ctx, msg).await;
             }
 
             //who is petal bot
@@ -143,6 +164,33 @@ my mistress actenosa diocelia (it/its), 7th bloom! I am here to spend time with 
 if you need any help you can use the !help command to learn more about the things I'm able to do!";
 
     
+        if let Err(e) = msg.channel_id.say(&ctx.http, response).await {
+            error!("Error sending message: {:?}", e);
+        }
+
+    }
+
+    async fn help(&self, ctx: &Context, msg: Message){
+        let response = "of course here are some commands and there actions!
+!about: I will tell you about myself!
+!ping: I will record what shard I got the ping from in the terminal
+!gay
+!trans rights
+!trans wrongs";
+
+        if let Err(e) = msg.channel_id.say(&ctx.http, response).await {
+            error!("Error sending message: {:?}", e);
+        }
+    }
+
+    async fn keySmash(&self, ctx: &Context, msg: Message){
+        let size = rand::rng().gen_range(10..=25);
+        let response = rand::rng()
+            .sample_iter(&Alphanumeric)
+            .take(size)
+            .map(char::from)
+            .collect::<String>();
+
         if let Err(e) = msg.channel_id.say(&ctx.http, response).await {
             error!("Error sending message: {:?}", e);
         }
