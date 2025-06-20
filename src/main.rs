@@ -12,6 +12,8 @@ use regex::Regex;
 use std::collections::HashMap;
 use rand::prelude::*;
 use rand::distr::Alphanumeric;
+use pyo3::prelude::*;
+use pyo3::ffi::c_str;
 
 //TO-DO: the guild id is within the message so all we need to do is get the guild id and store it in a hash table with the counter
 
@@ -50,6 +52,18 @@ async fn checkCount(ctx: &Context, guildid: GuildId) -> bool {
     }
 }
 
+async fn getStory() -> String {
+    pyo3::prepare_freethreaded_python();
+    let code = c_str!(include_str!("HDGFicFinder.py"));
+    Python::with_gil(|py| {
+        let HDG = PyModule::from_code(py, code, c_str!("HDGFicFinder.py"), c_str!("HDGFicFinder"));
+        let string: String = HDG.expect("nope").getattr("getRandomHDG").expect("nope").call0().expect("nope").extract().expect("nope");
+
+        return string;
+    }) 
+
+}
+
 
 //some call words are: 
 //good floret, !ping, !hello, !gay, !yay!, !trans rights, !trans wrongs
@@ -77,6 +91,11 @@ impl EventHandler for Bot {
 
             else if msg.content.to_lowercase() == "!about"{
                 self.aboutPetalBot(&ctx, msg).await;
+            }
+
+            else if msg.content.to_lowercase() == "!story"{
+                let response: String = getStory().await;
+                self.respond(ctx, msg, format!("I really like {} I think you should read it!", &response).as_str()).await;
             }
 
             else if msg.content.to_lowercase() == "!help"{
